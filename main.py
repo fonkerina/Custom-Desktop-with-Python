@@ -15,7 +15,7 @@ from PyQt6.QtCore import Qt, QTimer, QPoint
 #todo here: code to deal with overflow, set up saves in json file and delete previous json file!!
 
 class TodoList(QWidget):
-    def __init__(self):
+    def __init__(self, ax:int, ay:int, aw:int, ah:int):
         super().__init__()
 
         self.load_assets()
@@ -49,7 +49,7 @@ class TodoList(QWidget):
         
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setGeometry(5, 5, 210, 370)
+        self.setGeometry(self.ax(), self.ay(), self.aw(), self.ah())
         
         self.is_minimised = False
         self._offset = None
@@ -215,11 +215,11 @@ class SpotifyWidget(QWidget):
         self.font = QFont(family, 14) # load in font
         self.backg_pixmap = QPixmap("assets/spotbg.jpeg") # background image
         
-    def init_ui(self):
+    def init_ui(self, ax:int, ay:int, aw:int, ah:int):
         """Initialise widget"""
         
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.setGeometry(400, 60, 210, 110)
+        self.setGeometry(self.ax(), self.ay(), self.aw(), self.ah())
         self._offset = None
     
     def config_ui(self):
@@ -235,20 +235,25 @@ class SpotifyWidget(QWidget):
         self.backg.mousePressEvent = self.start_move
         self.backg.mouseMoveEvent = self.do_move
         
+        ax = self.ax()
+        ay = self.ay()
+        aw = self.aw()
+        ah = self.ah()
+        
         self.album_art = QLabel(self)
-        self.album_art.setGeometry(10, 10, 50, 50)
+        self.album_art.setGeometry(ax/40, ay/6, aw/5, ah/2)
         self.album_art.setStyleSheet("border-radius: 4px;")
         self.album_art.setScaledContents(True)
 
         self.song_label = QLabel(self.song_name, self)
         self.song_label.setFont(self.font)
         self.song_label.setStyleSheet("color: black;")
-        self.song_label.setGeometry(90, 10, 100, 25)
+        self.song_label.setGeometry(ax/4, ay/6, aw/2, ah/4)
 
         self.artist_label = QLabel(self.artist_name, self)
         self.artist_label.setFont(self.font)
         self.artist_label.setStyleSheet("color: black;")
-        self.artist_label.setGeometry(90, 35, 100, 20)
+        self.artist_label.setGeometry(ax/4, ay/2, aw/2, ah/5)
             
         # Playback buttons
         self.prev_btn = QPushButton("⏮", self)
@@ -391,10 +396,15 @@ class PicWidget(QWidget):
         if self._offset is not None and event.buttons() == Qt.MouseButton.LeftButton:
             self.move(self.pos() + event.pos() - self._offset)
     
+
+class StudyWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+        
         
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = TodoList()
+    window = TodoList(5, 5, 210, 370)
     spotify = SpotifyWidget()
     spotify.show()
     
@@ -405,8 +415,7 @@ if __name__ == "__main__":
     Lady = PicWidget("rounded", "assets/Lady.jpeg", 200, 200, 110, 400)
     Lady.show()
     
-    Me = PicWidget("star", "assets/DSCF7458.JPG", 110, 110, 710, 390)
-    Me.show()
+    #Me = PicWidget("star", "assets/DSCF7458.JPG", 110, 110, 710, 390)
     
     #minilady = PicWidget("rounded", "assets/Lady icon.jpeg", )
     
