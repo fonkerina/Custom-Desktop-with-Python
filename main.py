@@ -6,10 +6,10 @@ import os
 import math
 
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QLabel, QLineEdit, QListWidget, QPushButton, QGraphicsDropShadowEffect
+    QApplication, QWidget, QLabel, QLineEdit, QListWidget, QPushButton, QGraphicsOpacityEffect
 )
 from PyQt6.QtGui import QFont, QPixmap, QFontDatabase, QPainter, QBrush, QColor, QCursor, QRegion, QPolygon, QPainterPath
-from PyQt6.QtCore import Qt, QTimer, QPoint
+from PyQt6.QtCore import Qt, QTimer, QPoint, QTime
 
 # ADD RESIZE FEATURE TO ALL
 #todo here: code to deal with overflow, set up saves in json file and delete previous json file!!
@@ -30,7 +30,7 @@ class TodoList(QWidget):
         font_id = QFontDatabase.addApplicationFont("assets/Tangerine-Regular.ttf")
         family = QFontDatabase.applicationFontFamilies(font_id)[0]
         self.font = QFont(family, 12) # load in font
-        self.bg_pixmap = QPixmap("assets/listbg.jpeg") # background image
+        self.bg_pixmap = QPixmap("assets/newtodo.jpg") # background image
     
     class MinButton(QPushButton):
         def paintEvent(self, event):
@@ -80,7 +80,7 @@ class TodoList(QWidget):
                 margin: 5px;
                 font-size: 18px;
                 padding: 2px;
-                background: rgba(255,255,255,95);
+                background: rgba(255,255,255,110);
                 border-bottom: 1.5px solid rgba(79, 12, 58, 0.4);
                 border-radius: 0px;
             }
@@ -97,11 +97,11 @@ class TodoList(QWidget):
         self.listbox.setStyleSheet("""
             QListWidget {
                 margin-bottom: 3px;
-                background: rgba(255,255,255,120);
+                background: rgba(0,0,0,55);
                 color: black;
             }
             QListWidget::item:selected {
-                background: rgba(255,255,255,128);
+                background: rgba(0,0,0,90);
             }
         """)
         self.listbox.itemClicked.connect(self.complete_task)
@@ -182,7 +182,7 @@ class TodoList(QWidget):
         if self._offset is not None and event.buttons() == Qt.MouseButton.LeftButton:
             self.move(self.pos() + event.pos() - self._offset)
 
-#todo here: get album art to show, make words bolder
+#todo spotify: make words bolder
 
 SPOTIFY_REDIRECT_URI = "http://127.0.0.1:8888/callback"
 SCOPE = "user-read-playback-state user-read-currently-playing user-modify-playback-state"
@@ -221,7 +221,9 @@ class SpotifyWidget(QWidget):
         font_id = QFontDatabase.addApplicationFont("assets/Tangerine-Regular.ttf")
         family = QFontDatabase.applicationFontFamilies(font_id)[0]
         self.font = QFont(family, 14) # load in font
-        self.backg_pixmap = QPixmap("assets/spotbg.jpeg") # background image
+        self.backg_pixmap = QPixmap("assets/newspotbg.jpg") # background image
+        self.opacity_effect = QGraphicsOpacityEffect()
+        self.opacity_effect.setOpacity(0.8)  
         
     def init_ui(self):
         """Initialise widget"""
@@ -238,25 +240,28 @@ class SpotifyWidget(QWidget):
         Qt.TransformationMode.SmoothTransformation
     )
         self.backg.setPixmap(self.scaled_pixmap)
+        self.backg.setGraphicsEffect(self.opacity_effect)
         self.backg.setGeometry(0, 0, self.width(), self.height())
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
         self.backg.mousePressEvent = self.start_move
         self.backg.mouseMoveEvent = self.do_move
         
         self.album_art = QLabel(self)
-        self.album_art.setGeometry(self.ax//40, self.ay//6, self.aw//5, self.ah//2)
-        self.album_art.setStyleSheet("border-radius: 4px;")
+        self.album_art.setGeometry(4*self.ax + self.width()//2, 0, self.aw//3, self.ah)
+        #self.album_art.setStyleSheet("border-radius: 4px;")
         self.album_art.setScaledContents(True)
 
         self.song_label = QLabel(self.song_name, self)
         self.song_label.setFont(self.font)
         self.song_label.setStyleSheet("color: black;")
-        self.song_label.setGeometry(self.ax//4, self.ay//6, self.aw//2, self.ah//4)
+        self.song_label.setGeometry(self.ax//4 + 4, 4, self.aw//4, self.ah//4)
 
         self.artist_label = QLabel(self.artist_name, self)
         self.artist_label.setFont(self.font)
         self.artist_label.setStyleSheet("color: black;")
-        self.artist_label.setGeometry(self.ax//4, self.ay//2, self.aw//2, self.ah//5)
+        self.artist_label.setGeometry(self.ax//4 + 4, self.ay//10 +4, self.aw//4, self.ah//5)
             
         # Playback buttons
         self.prev_btn = QPushButton("⏮", self)
@@ -335,7 +340,6 @@ class SpotifyWidget(QWidget):
     def prev_track(self):
         self.sp.previous_track()
     
-    
 class PicWidget(QWidget):
     def __init__(self, shape: str, asset: str, width: int, height: int, x: int, y: int):
         super().__init__()
@@ -399,28 +403,109 @@ class PicWidget(QWidget):
         if self._offset is not None and event.buttons() == Qt.MouseButton.LeftButton:
             self.move(self.pos() + event.pos() - self._offset)
     
-
-class StudyWindow(QWidget):
-    def __init__(self):
+class ClockWidget(QWidget):
+    def __init__(self, ax:int, ay:int, aw:int, ah:int):
         super().__init__()
+        self.ax = ax
+        self.ay = ay
+        self.aw = aw
+        self.ah = ah
+        
+        self._offset = None 
+
+        self.init_ui()
+        self.load_assets()
+        self.config_ui()
+        self.update_time()
+
+        # Timer to update every second
+        timer = QTimer(self)
+        timer.timeout.connect(self.update_time)
+        timer.start(1000)
+
+    def init_ui(self):
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
+        self.setGeometry(self.ax, self.ay, self.aw, self.ah)  # x, y, width, height
+    
+    def load_assets(self):
+        font_id = QFontDatabase.addApplicationFont("assets/Tangerine-Regular.ttf")
+        family = QFontDatabase.applicationFontFamilies(font_id)[0]
+        self.font = QFont(family, 40) # load in font
+        self.backg_pixmap = QPixmap("assets/clockbg.jpg") 
+        
+    def config_ui(self):
+        self.backg = QLabel(self)
+        self.scaled_pixmap = self.backg_pixmap.scaled(
+        self.width(), self.height(), 
+        Qt.AspectRatioMode.KeepAspectRatio, 
+        Qt.TransformationMode.SmoothTransformation
+    )
+        self.backg.setPixmap(self.scaled_pixmap)
+        self.backg.setGeometry(0, 0, self.width(), self.height())
+        
+        self.time_label = QLabel(self)
+        self.time_label.setGeometry(-10, 0, self.width(), self.height())
+        self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.time_label.setStyleSheet("""
+                                      QLabel { 
+                                        color: white;
+                                        font-size: 24px; 
+                                        }""")
+        
+        self.backg.mousePressEvent = self.start_move
+        self.backg.mouseMoveEvent = self.do_move
+
+    def update_time(self):
+        """Update the label with the current time"""
+        current_time = QTime.currentTime().toString("HH:mm:ss")
+        self.time_label.setText(current_time)
+        
+    def start_move(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._offset = event.pos()
+
+    def do_move(self, event):
+        if self._offset is not None and event.buttons() == Qt.MouseButton.LeftButton:
+            self.move(self.pos() + event.pos() - self._offset)
+
+    def mouseReleaseEvent(self, event):
+        self._offset = None
+        
+#class StudyWindow(QWidget):
+#    def __init__(self):
+#        super().__init__()
         
         
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     
     # To do widget
-    window = TodoList(5, 300, 210, 390)
+    window = TodoList(820, 10, 210, 440)
     
     # Music widget
-    spotify = SpotifyWidget(400, 60, 210, 110)
+    spotify = SpotifyWidget(10, 300, 260, 100)
     spotify.show()
     
+    # Clock widget
+    clock = ClockWidget(10, 10, 350, 170) # xy wid height
+    clock.show()
+    
     # Picture widgets
-    Bloodorange = PicWidget("rounded", "assets/bloodorange.jpeg", 260, 230, 340, 10)
+    Bloodorange = PicWidget("rounded", "assets/bloodorange.jpeg", 130, 120, 1070, 10) # wid height xy
     Bloodorange.show()
     
-    Lady = PicWidget("rounded", "assets/Lady.jpeg", 200, 200, 110, 400)
+    Lady = PicWidget("rounded", "assets/Lady.jpeg", 70, 60, 1070, 300)
     Lady.show()
+    
+    me = PicWidget("rounded", "assets/mini1.JPG", 130, 120, 1070, 350)
+    me.show()
+    
+    maki = PicWidget("rounded", "assets/mini2.jpg", 70, 60, 1070, 200)
+    maki.show()
+    
+    
     
     #Me = PicWidget("star", "assets/DSCF7458.JPG", 110, 110, 710, 390)
     #minilady = PicWidget("rounded", "assets/Lady icon.jpeg", )
