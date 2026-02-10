@@ -11,26 +11,121 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QFont, QPixmap, QFontDatabase, QPainter, QBrush, QColor, QCursor, QRegion, QPolygon, QPainterPath
 from PyQt6.QtCore import Qt, QTimer, QPoint, QTime
 
-# ADD RESIZE FEATURE TO ALL
-#todo here: code to deal with overflow, set up saves in json file and delete previous json file!!
+GRID_WIDTH = 120
+GRID_HEIGHT = 120
 
-class TodoList(QWidget):
-    def __init__(self, ax:int, ay:int, aw:int, ah:int):
-        super().__init__()
-        self.ax = ax
-        self.ay = ay
-        self.aw = aw
-        self.ah = ah
+GRID_MARGIN = 10 # distance between widgets
+GRID_SIZE = 80 # distance between grid points
+SNAP_THRESHOLD = 18 # how close before snapping
+
+ALL_WIDGETS = []
+
+
+class MagneticWidget(QWidget):
+    """
+    drag property, collision detection, grid snapping
+    """
+    def __init__(self, x: int, y: int, w: int, h: int, parent = None, name = 'new widget'):
+        super().__init__(parent) # establishes hierarchy if there is a parent
+        self.x = x
+        self.y = y
+        self.w = w 
+        self.h = h
         
+        self.name = name
+        self.offset = None
+        
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+                
+        # try initial position then use find nearest unoccupied snap point
+        snap_x, snap_y = self.snap_to_grid(x, y)
+        others = [w["widget"] for w in ALL_WIDGETS if w["widget"] is not self]
+
+        if not self.collision_at(snap_x, snap_y, others):
+            final_x, final_y = snap_x, snap_y
+        else:
+            final_x, final_y = self.find_nearest_free_snap(snap_x, snap_y, others)
+
+        self.setGeometry(final_x, final_y, w, h)
+                    
+        ALL_WIDGETS.append({"widget": self, "name": name})
+        
+        
+    def collision(self, others):
+        widget_box = self.geometry()
+        for widget in others:
+            if widget_box.intersects(widget.geometry()):
+                return True
+        return False
+    
+    def collision_at(self, x, y, others):
+        widget_box = self.geometry()
+        widget_box.moveTo(x, y)
+        for w in others:
+            if widget_box.intersects(w.geometry()):
+                return True
+        return False
+    
+    def snap_to_grid(self, x, y):
+        snapx = round(x / GRID_WIDTH) * GRID_WIDTH + GRID_MARGIN
+        snapy = round(y / GRID_HEIGHT) * GRID_HEIGHT + GRID_MARGIN
+        return snapx, snapy
+    
+    def find_nearest_free_snap(self, snap_x, snap_y, others, max_radius=5):
+        """
+        Searches grid points around (snap_x, snap_y)
+        max_radius = how many grid steps outward to search
+        """
+
+        for r in range(max_radius + 1):
+            for dx in range(-r, r + 1):
+                for dy in range(-r, r + 1):
+
+                    x = snap_x + dx * GRID_WIDTH
+                    y = snap_y + dy * GRID_HEIGHT
+
+                    if not self.collision_at(x, y, others):
+                        return x, y
+
+        return snap_x, snap_y  
+
+    def start_move(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._offset = event.pos()
+
+    def do_move(self, event):
+        if self._offset and event.buttons() == Qt.MouseButton.LeftButton:
+            move_pos = self.pos() + event.pos() - self._offset
+
+            snap_x, snap_y = self.snap_to_grid(move_pos.x(), move_pos.y())
+            others = [w["widget"] for w in ALL_WIDGETS if w["widget"] is not self]
+            
+            if not self.collision_at(snap_x, snap_y, others):
+                self.move(snap_x, snap_y)
+            else:
+                free_x, free_y = self.find_nearest_free_snap(
+                    snap_x, snap_y, others
+                )
+                self.move(free_x, free_y)
+
+    def mouseReleaseEvent(self, event):
+        self._offset = None
+        
+        
+#todo here: code to deal with overflow, set up saves in json file and delete previous json file!!
+class TodoList(MagneticWidget):
+    def __init__(self, x: int, y: int, w: int, h: int):
+        super().__init__(x,y,w,h, name = 'ToDoList')
         self.load_assets()
         self.init_ui()
         self.config_ui()
-
+     
     def load_assets(self):
         font_id = QFontDatabase.addApplicationFont("assets/Tangerine-Regular.ttf")
         family = QFontDatabase.applicationFontFamilies(font_id)[0]
-        self.font = QFont(family, 12) # load in font
-        self.bg_pixmap = QPixmap("assets/newtodo.jpg") # background image
+        self.font = QFont(family, 12)
+        self.bg_pixmap = QPixmap("assets/newtodo.jpg") 
     
     class MinButton(QPushButton):
         def paintEvent(self, event):
@@ -47,16 +142,11 @@ class TodoList(QWidget):
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawRect(0, 0, 7, 3)  # draw rectangle
             super().paintEvent(event)
+            
 
     def init_ui(self):
         """Initialise widget"""
-        
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setGeometry(self.ax, self.ay, self.aw, self.ah)
-        
         self.is_minimised = False
-        self._offset = None
         
 
     def config_ui(self):
@@ -66,7 +156,6 @@ class TodoList(QWidget):
         self.bg = QLabel(self)
         self.bg.setPixmap(self.bg_pixmap)
         self.bg.setGeometry(0, 0, self.width(), self.height())
-
         self.bg.mousePressEvent = self.start_move
         self.bg.mouseMoveEvent = self.do_move
         
@@ -105,6 +194,8 @@ class TodoList(QWidget):
             }
         """)
         self.listbox.itemClicked.connect(self.complete_task)
+        self.listbox.mousePressEvent = self.start_move
+        self.listbox.mouseMoveEvent = self.do_move
 
         # Initialise minimise button
         self.min_btn = self.MinButton(self)  
@@ -183,17 +274,12 @@ class TodoList(QWidget):
             self.move(self.pos() + event.pos() - self._offset)
 
 #todo spotify: make words bolder
-
 SPOTIFY_REDIRECT_URI = "http://127.0.0.1:8888/callback"
 SCOPE = "user-read-playback-state user-read-currently-playing user-modify-playback-state"
 
-class SpotifyWidget(QWidget):
-    def __init__(self, ax:int, ay:int, aw:int, ah:int):
-        super().__init__()
-        self.ax = ax
-        self.ay = ay
-        self.aw = aw
-        self.ah = ah
+class SpotifyWidget(MagneticWidget):
+    def __init__(self, x:int, y:int, w:int, h:int):
+        super().__init__(x,y,w,h, name = 'SpotifyWidget')
         
         self.song_name = "[Track]"
         self.artist_name = "[Artist]"
@@ -227,10 +313,7 @@ class SpotifyWidget(QWidget):
         
     def init_ui(self):
         """Initialise widget"""
-        
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.setGeometry(self.ax, self.ay, self.aw, self.ah)
-        self._offset = None
+        pass
     
     def config_ui(self):
         self.backg = QLabel(self)
@@ -242,26 +325,23 @@ class SpotifyWidget(QWidget):
         self.backg.setPixmap(self.scaled_pixmap)
         self.backg.setGraphicsEffect(self.opacity_effect)
         self.backg.setGeometry(0, 0, self.width(), self.height())
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        
         self.backg.mousePressEvent = self.start_move
         self.backg.mouseMoveEvent = self.do_move
         
         self.album_art = QLabel(self)
-        self.album_art.setGeometry(4*self.ax + self.width()//2, 0, self.aw//3, self.ah)
+        self.album_art.setGeometry(4*self.x + self.width()//2, 0, self.w//3, self.h)
         #self.album_art.setStyleSheet("border-radius: 4px;")
         self.album_art.setScaledContents(True)
 
         self.song_label = QLabel(self.song_name, self)
         self.song_label.setFont(self.font)
         self.song_label.setStyleSheet("color: black;")
-        self.song_label.setGeometry(self.ax//4 + 4, 4, self.aw//4, self.ah//4)
+        self.song_label.setGeometry(self.x//4 + 4, 4, self.w//4, self.h//4)
 
         self.artist_label = QLabel(self.artist_name, self)
         self.artist_label.setFont(self.font)
         self.artist_label.setStyleSheet("color: black;")
-        self.artist_label.setGeometry(self.ax//4 + 4, self.ay//10 +4, self.aw//4, self.ah//5)
+        self.artist_label.setGeometry(self.x//4 + 4, self.y//10 +4, self.w//4, self.h//5)
             
         # Playback buttons
         self.prev_btn = QPushButton("⏮", self)
@@ -285,17 +365,6 @@ class SpotifyWidget(QWidget):
         self.play_btn.clicked.connect(self.play_pause)
         self.prev_btn.clicked.connect(self.prev_track)
         self.next_btn.clicked.connect(self.next_track)
-    
-    def start_move(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._offset = event.pos()
-
-    def do_move(self, event):
-        if self._offset is not None and event.buttons() == Qt.MouseButton.LeftButton:
-            self.move(self.pos() + event.pos() - self._offset)
-
-    def mouseReleaseEvent(self, event):
-        self._offset = None
 
     # SPOTIFY API CONNECTIONS
     def update_track(self):
@@ -340,79 +409,61 @@ class SpotifyWidget(QWidget):
     def prev_track(self):
         self.sp.previous_track()
     
-class PicWidget(QWidget):
-    def __init__(self, shape: str, asset: str, width: int, height: int, x: int, y: int):
-        super().__init__()
-        self._offset = None
+class PicWidget(MagneticWidget):
+    def __init__(self, shape: str, asset: str, x:int, y:int, w:int, h:int):
+        super().__init__(x,y,w,h, name = 'PicWidgetConstructor')
         self.shape = shape.lower()
-        self.setGeometry(x, y, width, height)
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
         # Apply shape mask first
-        self.apply_mask(width, height)
+        self.apply_mask(w, h)
         
         # Load image and scale to widget size exactly
         self.frame = QLabel(self)
-        pixmap = QPixmap(asset).scaled(width, height, 
+        pixmap = QPixmap(asset).scaled(w, h, 
                                        Qt.AspectRatioMode.IgnoreAspectRatio,
                                        Qt.TransformationMode.SmoothTransformation)
         self.frame.setPixmap(pixmap)
-        self.frame.setGeometry(0, 0, width, height)
+        self.frame.setGeometry(0, 0, w, h)
         self.frame.mousePressEvent = self.start_move
         self.frame.mouseMoveEvent = self.do_move
         self.show()
     
-    def apply_mask(self, width, height, radius = 20):
+    def apply_mask(self, w, h, radius = 20):
         """Apply mask according to shape"""
         if self.shape == 'circle':
-            region = QRegion(0, 0, width, height, QRegion.Ellipse)
+            region = QRegion(0, 0, w, h, QRegion.Ellipse)
             self.setMask(region)
         elif self.shape == 'rectangle':
-            region = QRegion(0, 0, width, height)
+            region = QRegion(0, 0, w, h)
             self.setMask(region)
         elif self.shape == 'rounded':
             path = QPainterPath()
-            path.addRoundedRect(0, 0, width, height, radius, radius)
+            path.addRoundedRect(0, 0, w, h, radius, radius)
             region = QRegion(path.toFillPolygon().toPolygon())
             self.setMask(region)
         elif self.shape == 'star':
             points = [
-                QPoint(int(width*0.5), 0),  # top centre
-                QPoint(int(width*0.62), int(height*0.35)),
-                QPoint(int(width), int(height*0.4)),
-                QPoint(int(width*0.68), int(height*0.6)),
-                QPoint(int(width*0.79), int(height)),
-                QPoint(int(width*0.5), int(height*0.75)), # middle bottom
-                QPoint(int(width*0.21), int(height)),
-                QPoint(int(width*0.32), int(height*0.6)), 
-                QPoint(0, int(height*0.34)),
-                QPoint(int(width*0.38), int(height*0.35))
+                QPoint(int(w*0.5), 0),  # top centre
+                QPoint(int(w*0.62), int(h*0.35)),
+                QPoint(int(w), int(h*0.4)),
+                QPoint(int(w*0.68), int(h*0.6)),
+                QPoint(int(w*0.79), int(h)),
+                QPoint(int(w*0.5), int(h*0.75)), # middle bottom
+                QPoint(int(w*0.21), int(h)),
+                QPoint(int(w*0.32), int(h*0.6)), 
+                QPoint(0, int(h*0.34)),
+                QPoint(int(w*0.38), int(h*0.35))
             ]
             polygon = QPolygon(points)
             region = QRegion(polygon)
             self.setMask(region)
         else:
             raise ValueError("Shape must be 'circle', 'rectangle', or 'star'.")
+     
+class ClockWidget(MagneticWidget):
+    def __init__(self, x:int, y:int, w:int, h:int):
+        super().__init__(x, y, w, h, name = 'ClockWidget')
         
-    def start_move(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._offset = event.pos()
-
-    def do_move(self, event):
-        if self._offset is not None and event.buttons() == Qt.MouseButton.LeftButton:
-            self.move(self.pos() + event.pos() - self._offset)
-    
-class ClockWidget(QWidget):
-    def __init__(self, ax:int, ay:int, aw:int, ah:int):
-        super().__init__()
-        self.ax = ax
-        self.ay = ay
-        self.aw = aw
-        self.ah = ah
-        
-        self._offset = None 
-
         self.init_ui()
         self.load_assets()
         self.config_ui()
@@ -424,10 +475,7 @@ class ClockWidget(QWidget):
         timer.start(1000)
 
     def init_ui(self):
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-
-        self.setGeometry(self.ax, self.ay, self.aw, self.ah)  # x, y, width, height
+        pass
     
     def load_assets(self):
         font_id = QFontDatabase.addApplicationFont("assets/Tangerine-Regular.ttf")
@@ -444,6 +492,8 @@ class ClockWidget(QWidget):
     )
         self.backg.setPixmap(self.scaled_pixmap)
         self.backg.setGeometry(0, 0, self.width(), self.height())
+        self.backg.mousePressEvent = self.start_move
+        self.backg.mouseMoveEvent = self.do_move
         
         self.time_label = QLabel(self)
         self.time_label.setGeometry(-10, 0, self.width(), self.height())
@@ -453,30 +503,15 @@ class ClockWidget(QWidget):
                                         color: white;
                                         font-size: 24px; 
                                         }""")
-        
-        self.backg.mousePressEvent = self.start_move
-        self.backg.mouseMoveEvent = self.do_move
+        self.time_label.mousePressEvent = self.start_move
+        self.time_label.mouseMoveEvent = self.do_move
 
     def update_time(self):
         """Update the label with the current time"""
         current_time = QTime.currentTime().toString("HH:mm:ss")
         self.time_label.setText(current_time)
         
-    def start_move(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._offset = event.pos()
 
-    def do_move(self, event):
-        if self._offset is not None and event.buttons() == Qt.MouseButton.LeftButton:
-            self.move(self.pos() + event.pos() - self._offset)
-
-    def mouseReleaseEvent(self, event):
-        self._offset = None
-        
-#class StudyWindow(QWidget):
-#    def __init__(self):
-#        super().__init__()
-        
         
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -485,29 +520,27 @@ if __name__ == "__main__":
     window = TodoList(820, 10, 210, 440)
     
     # Music widget
-    spotify = SpotifyWidget(10, 300, 260, 100)
-    spotify.show()
+#    spotify = SpotifyWidget(10, 300, 260, 100)
+#    spotify.show()
     
     # Clock widget
-    clock = ClockWidget(10, 10, 350, 170) # xy wid height
-    clock.show()
+#    clock = ClockWidget(10, 10, 350, 170) # xy wid height
+#    clock.show()
     
     # Picture widgets
-    Bloodorange = PicWidget("rounded", "assets/bloodorange.jpeg", 130, 120, 1070, 10) # wid height xy
-    Bloodorange.show()
+#    Bloodorange = PicWidget("rounded", "assets/bloodorange.jpeg", 1070, 10, 130, 120) 
+#    Bloodorange.show()
     
-    Lady = PicWidget("rounded", "assets/Lady.jpeg", 70, 60, 1070, 300)
-    Lady.show()
+#    Lady = PicWidget("rounded", "assets/Lady.jpeg", 1070, 300, 70, 60)
+#    Lady.show()
     
-    me = PicWidget("rounded", "assets/mini1.JPG", 130, 120, 1070, 350)
-    me.show()
+#    me = PicWidget("rounded", "assets/mini1.JPG", 1070, 350, 130, 120)
+#    me.show()
     
-    maki = PicWidget("rounded", "assets/mini2.jpg", 70, 60, 1070, 200)
-    maki.show()
+#    maki = PicWidget("rounded", "assets/mini2.jpg", 1070, 200, 70, 60)
+#    maki.show()
     
-    
-    
-    #Me = PicWidget("star", "assets/DSCF7458.JPG", 110, 110, 710, 390)
+
     #minilady = PicWidget("rounded", "assets/Lady icon.jpeg", )
     
     sys.exit(app.exec())
