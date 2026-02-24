@@ -11,11 +11,11 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QFont, QPixmap, QFontDatabase, QPainter, QBrush, QColor, QCursor, QRegion, QPolygon, QPainterPath
 from PyQt6.QtCore import Qt, QTimer, QPoint, QTime
 
-GRID_WIDTH = 120
-GRID_HEIGHT = 120
+GRID_WIDTH = 1280
+GRID_HEIGHT = 672
 
-GRID_MARGIN = 10 # distance between widgets
-GRID_SIZE = 80 # distance between grid points
+GRID_MARGIN = 30 # distance between widgets
+GRID_SIZE = 75 # distance between grid points
 SNAP_THRESHOLD = 18 # how close before snapping
 
 ALL_WIDGETS = []
@@ -27,10 +27,6 @@ class MagneticWidget(QWidget):
     """
     def __init__(self, x: int, y: int, w: int, h: int, parent = None, name = 'new widget'):
         super().__init__(parent) # establishes hierarchy if there is a parent
-        self.x = x
-        self.y = y
-        self.w = w 
-        self.h = h
         
         self.name = name
         self.offset = None
@@ -39,7 +35,7 @@ class MagneticWidget(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
                 
         # try initial position then use find nearest unoccupied snap point
-        snap_x, snap_y = self.snap_to_grid(x, y)
+        snap_x, snap_y = self.snap_coords(x, y)
         others = [w["widget"] for w in ALL_WIDGETS if w["widget"] is not self]
 
         if not self.collision_at(snap_x, snap_y, others):
@@ -67,7 +63,7 @@ class MagneticWidget(QWidget):
                 return True
         return False
     
-    def snap_to_grid(self, x, y):
+    def snap_coords(self, x, y):
         snapx = round(x / GRID_WIDTH) * GRID_WIDTH + GRID_MARGIN
         snapy = round(y / GRID_HEIGHT) * GRID_HEIGHT + GRID_MARGIN
         return snapx, snapy
@@ -98,7 +94,7 @@ class MagneticWidget(QWidget):
         if self._offset and event.buttons() == Qt.MouseButton.LeftButton:
             move_pos = self.pos() + event.pos() - self._offset
 
-            snap_x, snap_y = self.snap_to_grid(move_pos.x(), move_pos.y())
+            snap_x, snap_y = self.snap_coords(move_pos.x(), move_pos.y())
             others = [w["widget"] for w in ALL_WIDGETS if w["widget"] is not self]
             
             if not self.collision_at(snap_x, snap_y, others):
@@ -118,14 +114,17 @@ class TodoList(MagneticWidget):
     def __init__(self, x: int, y: int, w: int, h: int):
         super().__init__(x,y,w,h, name = 'ToDoList')
         self.load_assets()
-        self.init_ui()
+        
+        self.is_minimised = False
+        self.setGeometry(x, y, w, h)
+        
         self.config_ui()
      
     def load_assets(self):
-        font_id = QFontDatabase.addApplicationFont("assets/Tangerine-Regular.ttf")
+        font_id = QFontDatabase.addApplicationFont("public_assets/Tangerine-Regular.ttf")
         family = QFontDatabase.applicationFontFamilies(font_id)[0]
         self.font = QFont(family, 12)
-        self.bg_pixmap = QPixmap("assets/newtodo.jpg") 
+        self.bg_pixmap = QPixmap("public_assets/todobg.jpg") 
     
     class MinButton(QPushButton):
         def paintEvent(self, event):
@@ -146,7 +145,7 @@ class TodoList(MagneticWidget):
 
     def init_ui(self):
         """Initialise widget"""
-        self.is_minimised = False
+        pass
         
 
     def config_ui(self):
@@ -294,7 +293,8 @@ class SpotifyWidget(MagneticWidget):
         #print("devices",devices)
         
         self.load_assets()
-        self.init_ui()
+        self.setGeometry(x, y, w, h)
+        
         self.config_ui()
         self.update_track()
         
@@ -304,10 +304,10 @@ class SpotifyWidget(MagneticWidget):
         
     
     def load_assets(self):
-        font_id = QFontDatabase.addApplicationFont("assets/Tangerine-Regular.ttf")
+        font_id = QFontDatabase.addApplicationFont("public_assets/RobotoMono-VariableFont_wght.ttf")
         family = QFontDatabase.applicationFontFamilies(font_id)[0]
         self.font = QFont(family, 14) # load in font
-        self.backg_pixmap = QPixmap("assets/newspotbg.jpg") # background image
+        self.backg_pixmap = QPixmap("public_assets/newspotbg.jpg") # background image
         self.opacity_effect = QGraphicsOpacityEffect()
         self.opacity_effect.setOpacity(0.8)  
         
@@ -329,19 +329,19 @@ class SpotifyWidget(MagneticWidget):
         self.backg.mouseMoveEvent = self.do_move
         
         self.album_art = QLabel(self)
-        self.album_art.setGeometry(4*self.x + self.width()//2, 0, self.w//3, self.h)
+        self.album_art.setGeometry(4*self.x() + self.width()//2, 0, self.width()//3, self.height())
         #self.album_art.setStyleSheet("border-radius: 4px;")
         self.album_art.setScaledContents(True)
 
         self.song_label = QLabel(self.song_name, self)
         self.song_label.setFont(self.font)
         self.song_label.setStyleSheet("color: black;")
-        self.song_label.setGeometry(self.x//4 + 4, 4, self.w//4, self.h//4)
+        self.song_label.setGeometry(self.x()//4 + 4, 4, self.width()//4, self.height()//4)
 
         self.artist_label = QLabel(self.artist_name, self)
         self.artist_label.setFont(self.font)
         self.artist_label.setStyleSheet("color: black;")
-        self.artist_label.setGeometry(self.x//4 + 4, self.y//10 +4, self.w//4, self.h//5)
+        self.artist_label.setGeometry(self.x()//4 + 4, self.y()//10 +4, self.width()//4, self.height()//5)
             
         # Playback buttons
         self.prev_btn = QPushButton("⏮", self)
@@ -412,9 +412,12 @@ class SpotifyWidget(MagneticWidget):
 class PicWidget(MagneticWidget):
     def __init__(self, shape: str, asset: str, x:int, y:int, w:int, h:int):
         super().__init__(x,y,w,h, name = 'PicWidgetConstructor')
-        self.shape = shape.lower()
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h 
         
-        # Apply shape mask first
+        self.shape = shape.lower()
         self.apply_mask(w, h)
         
         # Load image and scale to widget size exactly
@@ -459,29 +462,29 @@ class PicWidget(MagneticWidget):
             self.setMask(region)
         else:
             raise ValueError("Shape must be 'circle', 'rectangle', or 'star'.")
-     
+         
 class ClockWidget(MagneticWidget):
     def __init__(self, x:int, y:int, w:int, h:int):
         super().__init__(x, y, w, h, name = 'ClockWidget')
         
-        self.init_ui()
         self.load_assets()
+        self.setGeometry(x, y, w, h)
         self.config_ui()
         self.update_time()
 
         # Timer to update every second
         timer = QTimer(self)
         timer.timeout.connect(self.update_time)
-        timer.start(1000)
+        timer.start(900)
 
     def init_ui(self):
         pass
     
     def load_assets(self):
-        font_id = QFontDatabase.addApplicationFont("assets/Tangerine-Regular.ttf")
+        font_id = QFontDatabase.addApplicationFont("public_assets/RobotoMono-VariableFont_wght.ttf")
         family = QFontDatabase.applicationFontFamilies(font_id)[0]
         self.font = QFont(family, 40) # load in font
-        self.backg_pixmap = QPixmap("assets/clockbg.jpg") 
+        self.backg_pixmap = QPixmap("public_assets/clockbg.jpg") 
         
     def config_ui(self):
         self.backg = QLabel(self)
@@ -498,6 +501,7 @@ class ClockWidget(MagneticWidget):
         self.time_label = QLabel(self)
         self.time_label.setGeometry(-10, 0, self.width(), self.height())
         self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.time_label.setFont(self.font)
         self.time_label.setStyleSheet("""
                                       QLabel { 
                                         color: white;
@@ -520,27 +524,27 @@ if __name__ == "__main__":
     window = TodoList(820, 10, 210, 440)
     
     # Music widget
-#    spotify = SpotifyWidget(10, 300, 260, 100)
-#    spotify.show()
+    spotify = SpotifyWidget(10, 300, 260, 100)
+    spotify.show()
     
     # Clock widget
-#    clock = ClockWidget(10, 10, 350, 170) # xy wid height
-#    clock.show()
+    clock = ClockWidget(10, 10, 350, 170) 
+    clock.show()
     
     # Picture widgets
-#    Bloodorange = PicWidget("rounded", "assets/bloodorange.jpeg", 1070, 10, 130, 120) 
-#    Bloodorange.show()
+    Bloodorange = PicWidget("rounded", "assets/bloodorange.jpeg", 1070, 10, 130, 120) 
+    Bloodorange.show()
     
-#    Lady = PicWidget("rounded", "assets/Lady.jpeg", 1070, 300, 70, 60)
-#    Lady.show()
+    Lady = PicWidget("rounded", "assets/Lady.jpeg", 1070, 300, 70, 60)
+    Lady.show()
     
-#    me = PicWidget("rounded", "assets/mini1.JPG", 1070, 350, 130, 120)
-#    me.show()
+    #me = PicWidget("rounded", "assets/mini1.JPG", 1070, 350, 130, 120)
+    #me.show()
     
-#    maki = PicWidget("rounded", "assets/mini2.jpg", 1070, 200, 70, 60)
-#    maki.show()
+    maki = PicWidget("rounded", "assets/mini2.jpg", 1070, 200, 70, 60)
+    maki.show()
     
-
+    print(ALL_WIDGETS)
     #minilady = PicWidget("rounded", "assets/Lady icon.jpeg", )
     
     sys.exit(app.exec())
