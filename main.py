@@ -465,7 +465,7 @@ class PicWidget(MagneticWidget):
         else:
             raise ValueError("Shape must be 'circle', 'rounded', 'rectangle', or 'star'.")
 
-#todo: widget cannot be dragged
+#todo: widget moves once, then cannot be dragged
 class ClockWidget(MagneticWidget):
     def __init__(self, x:int, y:int, w:int, h:int):
         super().__init__(x, y, w, h, name = 'ClockWidget')
