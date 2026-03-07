@@ -109,7 +109,8 @@ class MagneticWidget(QWidget):
         self._offset = None
         
         
-#todo here: code to deal with overflow, set up saves in json file and delete previous json file!!
+#todo: widget drags everywhere, snaps a little? but there's no overlap effect
+# code to deal with overflow, set up saves in json file and delete previous json file!!
 class TodoList(MagneticWidget):
     def __init__(self, x: int, y: int, w: int, h: int):
         super().__init__(x,y,w,h, name = 'ToDoList')
@@ -121,10 +122,10 @@ class TodoList(MagneticWidget):
         self.config_ui()
      
     def load_assets(self):
-        font_id = QFontDatabase.addApplicationFont("public_assets/Tangerine-Regular.ttf")
+        font_id = QFontDatabase.addApplicationFont("public-assets/Tangerine-Regular.ttf")
         family = QFontDatabase.applicationFontFamilies(font_id)[0]
         self.font = QFont(family, 12)
-        self.bg_pixmap = QPixmap("public_assets/todobg.jpg") 
+        self.bg_pixmap = QPixmap("public-assets/todobg.jpg") 
     
     class MinButton(QPushButton):
         def paintEvent(self, event):
@@ -193,8 +194,8 @@ class TodoList(MagneticWidget):
             }
         """)
         self.listbox.itemClicked.connect(self.complete_task)
-        self.listbox.mousePressEvent = self.start_move
-        self.listbox.mouseMoveEvent = self.do_move
+        #self.listbox.mousePressEvent = self.start_move
+        #self.listbox.mouseMoveEvent = self.do_move
 
         # Initialise minimise button
         self.min_btn = self.MinButton(self)  
@@ -272,7 +273,7 @@ class TodoList(MagneticWidget):
         if self._offset is not None and event.buttons() == Qt.MouseButton.LeftButton:
             self.move(self.pos() + event.pos() - self._offset)
 
-#todo spotify: make words bolder
+#todo spotify: widget disappears when clicked
 SPOTIFY_REDIRECT_URI = "http://127.0.0.1:8888/callback"
 SCOPE = "user-read-playback-state user-read-currently-playing user-modify-playback-state"
 
@@ -300,14 +301,14 @@ class SpotifyWidget(MagneticWidget):
         
         self.track_timer = QTimer()
         self.track_timer.timeout.connect(self.update_track)
-        self.track_timer.start(2000)
+        self.track_timer.start(1800)
         
     
     def load_assets(self):
-        font_id = QFontDatabase.addApplicationFont("public_assets/RobotoMono-VariableFont_wght.ttf")
+        font_id = QFontDatabase.addApplicationFont("public-assets/RobotoMono-VariableFont_wght.ttf")
         family = QFontDatabase.applicationFontFamilies(font_id)[0]
-        self.font = QFont(family, 14) # load in font
-        self.backg_pixmap = QPixmap("public_assets/newspotbg.jpg") # background image
+        self.font = QFont(family, 10) # load in font
+        self.backg_pixmap = QPixmap("public-assets/newspotbg.jpg") # background image
         self.opacity_effect = QGraphicsOpacityEffect()
         self.opacity_effect.setOpacity(0.8)  
         
@@ -408,7 +409,8 @@ class SpotifyWidget(MagneticWidget):
 
     def prev_track(self):
         self.sp.previous_track()
-    
+
+#todo: widgets don't show up at all
 class PicWidget(MagneticWidget):
     def __init__(self, shape: str, asset: str, x:int, y:int, w:int, h:int):
         super().__init__(x,y,w,h, name = 'PicWidgetConstructor')
@@ -418,7 +420,7 @@ class PicWidget(MagneticWidget):
         self.h = h 
         
         self.shape = shape.lower()
-        self.apply_mask(w, h)
+        self.apply_mask(x, y, w, h)
         
         # Load image and scale to widget size exactly
         self.frame = QLabel(self)
@@ -426,12 +428,12 @@ class PicWidget(MagneticWidget):
                                        Qt.AspectRatioMode.IgnoreAspectRatio,
                                        Qt.TransformationMode.SmoothTransformation)
         self.frame.setPixmap(pixmap)
-        self.frame.setGeometry(0, 0, w, h)
+        self.frame.setGeometry(x, y, w, h)
         self.frame.mousePressEvent = self.start_move
         self.frame.mouseMoveEvent = self.do_move
         self.show()
     
-    def apply_mask(self, w, h, radius = 20):
+    def apply_mask(self, x, y, w, h, radius = 20):
         """Apply mask according to shape"""
         if self.shape == 'circle':
             region = QRegion(0, 0, w, h, QRegion.Ellipse)
@@ -441,7 +443,7 @@ class PicWidget(MagneticWidget):
             self.setMask(region)
         elif self.shape == 'rounded':
             path = QPainterPath()
-            path.addRoundedRect(0, 0, w, h, radius, radius)
+            path.addRoundedRect(x, y, w, h, radius, radius)
             region = QRegion(path.toFillPolygon().toPolygon())
             self.setMask(region)
         elif self.shape == 'star':
@@ -461,8 +463,9 @@ class PicWidget(MagneticWidget):
             region = QRegion(polygon)
             self.setMask(region)
         else:
-            raise ValueError("Shape must be 'circle', 'rectangle', or 'star'.")
-         
+            raise ValueError("Shape must be 'circle', 'rounded', 'rectangle', or 'star'.")
+
+#todo: widget cannot be dragged
 class ClockWidget(MagneticWidget):
     def __init__(self, x:int, y:int, w:int, h:int):
         super().__init__(x, y, w, h, name = 'ClockWidget')
@@ -481,10 +484,10 @@ class ClockWidget(MagneticWidget):
         pass
     
     def load_assets(self):
-        font_id = QFontDatabase.addApplicationFont("public_assets/RobotoMono-VariableFont_wght.ttf")
+        font_id = QFontDatabase.addApplicationFont("public-assets/RobotoMono-VariableFont_wght.ttf")
         family = QFontDatabase.applicationFontFamilies(font_id)[0]
         self.font = QFont(family, 40) # load in font
-        self.backg_pixmap = QPixmap("public_assets/clockbg.jpg") 
+        self.backg_pixmap = QPixmap("public-assets/clockbg.jpg") 
         
     def config_ui(self):
         self.backg = QLabel(self)
@@ -532,16 +535,16 @@ if __name__ == "__main__":
     clock.show()
     
     # Picture widgets
-    Bloodorange = PicWidget("rounded", "assets/bloodorange.jpeg", 1070, 10, 130, 120) 
+    Bloodorange = PicWidget("rounded", "private-assets/bloodorange.jpeg", 1070, 10, 130, 120) 
     Bloodorange.show()
     
-    Lady = PicWidget("rounded", "assets/Lady.jpeg", 1070, 300, 70, 60)
+    Lady = PicWidget("rounded", "private-assets/Lady.jpeg", 1070, 300, 70, 60)
     Lady.show()
     
     #me = PicWidget("rounded", "assets/mini1.JPG", 1070, 350, 130, 120)
     #me.show()
     
-    maki = PicWidget("rounded", "assets/mini2.jpg", 1070, 200, 70, 60)
+    maki = PicWidget("rounded", "private-assets/mini2.jpg", 1070, 200, 70, 60)
     maki.show()
     
     print(ALL_WIDGETS)
