@@ -3,7 +3,6 @@ import spotipy as sp
 from spotipy.oauth2 import SpotifyOAuth
 import requests
 import os
-import math
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QLabel, QLineEdit, QListWidget, QPushButton, QGraphicsOpacityEffect
@@ -11,12 +10,14 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QFont, QPixmap, QFontDatabase, QPainter, QBrush, QColor, QCursor, QRegion, QPolygon, QPainterPath
 from PyQt6.QtCore import Qt, QTimer, QPoint, QTime
 
+
 GRID_WIDTH = 1280
 GRID_HEIGHT = 672
 
-GRID_MARGIN = 30 # distance between widgets
-GRID_SIZE = 75 # distance between grid points
-SNAP_THRESHOLD = 18 # how close before snapping
+GRID_MARGIN = 20 # distance between widgets
+GRID_SIZE_X = 75
+GRID_SIZE_Y = 96 # distance between grid points
+SNAP_THRESHOLD = 9 # how close before snapping
 
 ALL_WIDGETS = []
 
@@ -29,7 +30,7 @@ class MagneticWidget(QWidget):
         super().__init__(parent) # establishes hierarchy if there is a parent
         
         self.name = name
-        self.offset = None
+        self._offset = None
         
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -47,7 +48,6 @@ class MagneticWidget(QWidget):
                     
         ALL_WIDGETS.append({"widget": self, "name": name})
         
-        
     def collision(self, others):
         widget_box = self.geometry()
         for widget in others:
@@ -63,9 +63,10 @@ class MagneticWidget(QWidget):
                 return True
         return False
     
-    def snap_coords(self, x, y):
-        snapx = round(x / GRID_WIDTH) * GRID_WIDTH + GRID_MARGIN
-        snapy = round(y / GRID_HEIGHT) * GRID_HEIGHT + GRID_MARGIN
+    @staticmethod
+    def snap_coords(x, y):
+        snapx = round(x / GRID_SIZE_X) * GRID_SIZE_X + GRID_MARGIN
+        snapy = round(y / GRID_SIZE_Y) * GRID_SIZE_Y + GRID_MARGIN
         return snapx, snapy
     
     def find_nearest_free_snap(self, snap_x, snap_y, others, max_radius=5):
@@ -78,8 +79,8 @@ class MagneticWidget(QWidget):
             for dx in range(-r, r + 1):
                 for dy in range(-r, r + 1):
 
-                    x = snap_x + dx * GRID_WIDTH
-                    y = snap_y + dy * GRID_HEIGHT
+                    x = snap_x + dx * GRID_SIZE_X
+                    y = snap_y + dy * GRID_SIZE_Y
 
                     if not self.collision_at(x, y, others):
                         return x, y
@@ -114,11 +115,10 @@ class MagneticWidget(QWidget):
 class TodoList(MagneticWidget):
     def __init__(self, x: int, y: int, w: int, h: int):
         super().__init__(x,y,w,h, name = 'ToDoList')
-        self.load_assets()
         
+        self.load_assets()
         self.is_minimised = False
         self.setGeometry(x, y, w, h)
-        
         self.config_ui()
      
     def load_assets(self):
@@ -142,11 +142,6 @@ class TodoList(MagneticWidget):
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawRect(0, 0, 7, 3)  # draw rectangle
             super().paintEvent(event)
-            
-
-    def init_ui(self):
-        """Initialise widget"""
-        pass
         
 
     def config_ui(self):
@@ -158,6 +153,7 @@ class TodoList(MagneticWidget):
         self.bg.setGeometry(0, 0, self.width(), self.height())
         self.bg.mousePressEvent = self.start_move
         self.bg.mouseMoveEvent = self.do_move
+        self.bg.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
         
         # Create entry box
         self.entry = QLineEdit(self)
@@ -204,6 +200,7 @@ class TodoList(MagneticWidget):
         self.min_btn.clicked.connect(self.minimise)
 
         self.show()
+
     
     # WIDGET FEATURES
     def add_to_list(self):
@@ -221,7 +218,6 @@ class TodoList(MagneticWidget):
         if self.font.strikeOut():
             self.font.setStrikeOut(False)
             selected.setFont(self.font)
-            selected.setForeground()
         else:
             self.font.setStrikeOut(True)
             selected.setFont(self.font)
@@ -265,13 +261,6 @@ class TodoList(MagneticWidget):
         
         self.is_minimised = False
 
-    def start_move(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._offset = event.pos()
-
-    def do_move(self, event):
-        if self._offset is not None and event.buttons() == Qt.MouseButton.LeftButton:
-            self.move(self.pos() + event.pos() - self._offset)
 
 #todo spotify: widget disappears when clicked
 SPOTIFY_REDIRECT_URI = "http://127.0.0.1:8888/callback"
@@ -366,6 +355,14 @@ class SpotifyWidget(MagneticWidget):
         self.play_btn.clicked.connect(self.play_pause)
         self.prev_btn.clicked.connect(self.prev_track)
         self.next_btn.clicked.connect(self.next_track)
+    
+        self.show()
+
+    def start_move(self, event):
+        return super().start_move(event)
+    
+    def do_move(self, event):
+        return super().do_move(event)
 
     # SPOTIFY API CONNECTIONS
     def update_track(self):
@@ -465,6 +462,12 @@ class PicWidget(MagneticWidget):
         else:
             raise ValueError("Shape must be 'circle', 'rounded', 'rectangle', or 'star'.")
 
+    def start_move(self, event):
+        return super().start_move(event)
+    
+    def do_move(self, event):
+        return super().do_move(event)
+
 #todo: widget moves once, then cannot be dragged
 class ClockWidget(MagneticWidget):
     def __init__(self, x:int, y:int, w:int, h:int):
@@ -479,9 +482,6 @@ class ClockWidget(MagneticWidget):
         timer = QTimer(self)
         timer.timeout.connect(self.update_time)
         timer.start(900)
-
-    def init_ui(self):
-        pass
     
     def load_assets(self):
         font_id = QFontDatabase.addApplicationFont("public-assets/RobotoMono-VariableFont_wght.ttf")
@@ -512,7 +512,15 @@ class ClockWidget(MagneticWidget):
                                         }""")
         self.time_label.mousePressEvent = self.start_move
         self.time_label.mouseMoveEvent = self.do_move
+        
+        self.show()
 
+    def start_move(self, event):
+        return super().start_move(event)
+    
+    def do_move(self, event):
+        return super().do_move(event)
+    
     def update_time(self):
         """Update the label with the current time"""
         current_time = QTime.currentTime().toString("HH:mm:ss")
@@ -528,25 +536,20 @@ if __name__ == "__main__":
     
     # Music widget
     spotify = SpotifyWidget(10, 300, 260, 100)
-    spotify.show()
     
     # Clock widget
     clock = ClockWidget(10, 10, 350, 170) 
-    clock.show()
     
     # Picture widgets
     Bloodorange = PicWidget("rounded", "private-assets/bloodorange.jpeg", 1070, 10, 130, 120) 
-    Bloodorange.show()
     
     Lady = PicWidget("rounded", "private-assets/Lady.jpeg", 1070, 300, 70, 60)
-    Lady.show()
     
     #me = PicWidget("rounded", "assets/mini1.JPG", 1070, 350, 130, 120)
     #me.show()
     
     maki = PicWidget("rounded", "private-assets/mini2.jpg", 1070, 200, 70, 60)
-    maki.show()
-    
+   
     print(ALL_WIDGETS)
     #minilady = PicWidget("rounded", "assets/Lady icon.jpeg", )
     
