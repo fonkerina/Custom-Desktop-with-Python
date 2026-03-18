@@ -27,9 +27,9 @@ class MagneticWidget(QWidget):
     drag property, collision detection, grid snapping
     """
     def __init__(self, x: int, y: int, w: int, h: int, parent = None, name = 'new widget'):
-        super().__init__(parent) # establishes hierarchy if there is a parent
+        super().__init__(parent)
         
-        self.name = name
+        self._name = name
         self._offset = None
         
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
@@ -46,7 +46,7 @@ class MagneticWidget(QWidget):
 
         self.setGeometry(final_x, final_y, w, h)
                     
-        ALL_WIDGETS.append({"widget": self, "name": name})
+        ALL_WIDGETS.append({"widget": self, "name": self._name})
         
     def collision(self, others):
         widget_box = self.geometry()
@@ -110,11 +110,10 @@ class MagneticWidget(QWidget):
         self._offset = None
         
         
-#todo: widget drags everywhere, snaps a little? but there's no overlap effect
 # code to deal with overflow, set up saves in json file and delete previous json file!!
 class TodoList(MagneticWidget):
     def __init__(self, x: int, y: int, w: int, h: int):
-        super().__init__(x,y,w,h, name = 'ToDoList')
+        super().__init__(x,y,w,h, name = 'To Do List')
         
         self.load_assets()
         self.is_minimised = False
@@ -262,7 +261,6 @@ class TodoList(MagneticWidget):
         self.is_minimised = False
 
 
-#todo spotify: widget disappears when clicked
 SPOTIFY_REDIRECT_URI = "http://127.0.0.1:8888/callback"
 SCOPE = "user-read-playback-state user-read-currently-playing user-modify-playback-state"
 
@@ -296,14 +294,11 @@ class SpotifyWidget(MagneticWidget):
     def load_assets(self):
         font_id = QFontDatabase.addApplicationFont("public-assets/RobotoMono-VariableFont_wght.ttf")
         family = QFontDatabase.applicationFontFamilies(font_id)[0]
-        self.font = QFont(family, 10) # load in font
-        self.backg_pixmap = QPixmap("public-assets/newspotbg.jpg") # background image
+        self.font = QFont(family, 10) 
+        self.backg_pixmap = QPixmap("public-assets/newspotbg.jpg") 
         self.opacity_effect = QGraphicsOpacityEffect()
         self.opacity_effect.setOpacity(0.8)  
         
-    def init_ui(self):
-        """Initialise widget"""
-        pass
     
     def config_ui(self):
         self.backg = QLabel(self)
@@ -320,7 +315,6 @@ class SpotifyWidget(MagneticWidget):
         
         self.album_art = QLabel(self)
         self.album_art.setGeometry(4*self.x() + self.width()//2, 0, self.width()//3, self.height())
-        #self.album_art.setStyleSheet("border-radius: 4px;")
         self.album_art.setScaledContents(True)
 
         self.song_label = QLabel(self.song_name, self)
@@ -358,11 +352,11 @@ class SpotifyWidget(MagneticWidget):
     
         self.show()
 
-    def start_move(self, event):
-        return super().start_move(event)
+    #def start_move(self, event):
+    #    return super().start_move(event)
     
-    def do_move(self, event):
-        return super().do_move(event)
+    #def do_move(self, event):
+    #    return super().do_move(event)
 
     # SPOTIFY API CONNECTIONS
     def update_track(self):
@@ -407,10 +401,11 @@ class SpotifyWidget(MagneticWidget):
     def prev_track(self):
         self.sp.previous_track()
 
-#todo: widgets don't show up at all
+
 class PicWidget(MagneticWidget):
     def __init__(self, shape: str, asset: str, x:int, y:int, w:int, h:int):
-        super().__init__(x,y,w,h, name = 'PicWidgetConstructor')
+        inst = len([i for i in dir() if isinstance(eval(i), PicWidget)])
+        super().__init__(x,y,w,h,name = f"PicWidgetConstructor{inst}")
         self.x = x
         self.y = y
         self.w = w
@@ -436,7 +431,7 @@ class PicWidget(MagneticWidget):
             region = QRegion(0, 0, w, h, QRegion.Ellipse)
             self.setMask(region)
         elif self.shape == 'rectangle':
-            region = QRegion(0, 0, w, h)
+            region = QRegion(x, y, w, h)
             self.setMask(region)
         elif self.shape == 'rounded':
             path = QPainterPath()
@@ -462,13 +457,13 @@ class PicWidget(MagneticWidget):
         else:
             raise ValueError("Shape must be 'circle', 'rounded', 'rectangle', or 'star'.")
 
-    def start_move(self, event):
-        return super().start_move(event)
+    #def start_move(self, event):
+    #    return super().start_move(event)
     
-    def do_move(self, event):
-        return super().do_move(event)
+    #def do_move(self, event):
+    #    return super().do_move(event)
 
-#todo: widget moves once, then cannot be dragged
+
 class ClockWidget(MagneticWidget):
     def __init__(self, x:int, y:int, w:int, h:int):
         super().__init__(x, y, w, h, name = 'ClockWidget')
@@ -478,7 +473,7 @@ class ClockWidget(MagneticWidget):
         self.config_ui()
         self.update_time()
 
-        # Timer to update every second
+        # Timer to update every 900 milliseconds
         timer = QTimer(self)
         timer.timeout.connect(self.update_time)
         timer.start(900)
@@ -486,7 +481,7 @@ class ClockWidget(MagneticWidget):
     def load_assets(self):
         font_id = QFontDatabase.addApplicationFont("public-assets/RobotoMono-VariableFont_wght.ttf")
         family = QFontDatabase.applicationFontFamilies(font_id)[0]
-        self.font = QFont(family, 40) # load in font
+        self.font = QFont(family, 40) 
         self.backg_pixmap = QPixmap("public-assets/clockbg.jpg") 
         
     def config_ui(self):
@@ -515,11 +510,11 @@ class ClockWidget(MagneticWidget):
         
         self.show()
 
-    def start_move(self, event):
-        return super().start_move(event)
+    #def start_move(self, event):
+    #    return super().start_move(event)
     
-    def do_move(self, event):
-        return super().do_move(event)
+    #def do_move(self, event):
+    #    return super().do_move(event)
     
     def update_time(self):
         """Update the label with the current time"""
@@ -531,23 +526,15 @@ class ClockWidget(MagneticWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     
-    # To do widget
+
     window = TodoList(820, 10, 210, 440)
-    
-    # Music widget
     spotify = SpotifyWidget(10, 300, 260, 100)
-    
-    # Clock widget
     clock = ClockWidget(10, 10, 350, 170) 
     
     # Picture widgets
     Bloodorange = PicWidget("rounded", "private-assets/bloodorange.jpeg", 1070, 10, 130, 120) 
-    
     Lady = PicWidget("rounded", "private-assets/Lady.jpeg", 1070, 300, 70, 60)
-    
     #me = PicWidget("rounded", "assets/mini1.JPG", 1070, 350, 130, 120)
-    #me.show()
-    
     maki = PicWidget("rounded", "private-assets/mini2.jpg", 1070, 200, 70, 60)
    
     print(ALL_WIDGETS)
