@@ -409,13 +409,9 @@ class PicWidget(MagneticWidget):
     def __init__(self, shape: str, asset: str, x:int, y:int, w:int, h:int):
         PicWidget.__instance_count__ += 1
         super().__init__(x,y,w,h,name = f"PicWidgetConstructor{PicWidget.__instance_count__}")
-        self.x = x
-        self.y = y
-        self.w = w
-        self.h = h 
         
         self.shape = shape.lower()
-        self.apply_mask(x, y, w, h)
+        self.apply_mask(0, 0, w, h)
         
         # Load image and scale to widget size exactly
         self.frame = QLabel(self)
@@ -423,7 +419,7 @@ class PicWidget(MagneticWidget):
                                        Qt.AspectRatioMode.IgnoreAspectRatio,
                                        Qt.TransformationMode.SmoothTransformation)
         self.frame.setPixmap(pixmap)
-        self.frame.setGeometry(x, y, w, h)
+        self.frame.setGeometry(0, 0, w, h)
         self.frame.mousePressEvent = self.start_move
         self.frame.mouseMoveEvent = self.do_move
         self.show()
@@ -518,11 +514,9 @@ class ClockWidget(MagneticWidget):
         self.time_label.setText(current_time)
         
 
-        
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     
-
     window = TodoList(820, 10, 210, 440)
     spotify = SpotifyWidget(10, 300, 260, 100)
     clock = ClockWidget(10, 10, 350, 170) 
@@ -530,11 +524,9 @@ if __name__ == "__main__":
     # Picture widgets
     Bloodorange = PicWidget("rounded", "private-assets/bloodorange.jpeg", 1070, 10, 130, 120) 
     Lady = PicWidget("rounded", "private-assets/Lady.jpeg", 1070, 300, 70, 60)
-    #me = PicWidget("rounded", "assets/mini1.JPG", 1070, 350, 130, 120)
     maki = PicWidget("rounded", "private-assets/mini2.jpg", 1070, 200, 70, 60)
    
     print(ALL_WIDGETS)
-    #minilady = PicWidget("rounded", "assets/Lady icon.jpeg", )
     
     sys.exit(app.exec())
 
