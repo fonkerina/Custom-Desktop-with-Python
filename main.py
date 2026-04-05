@@ -14,7 +14,7 @@ from PyQt6.QtCore import Qt, QTimer, QPoint, QTime
 GRID_WIDTH = 1280
 GRID_HEIGHT = 672
 
-GRID_MARGIN = 20 # distance between widgets
+GRID_MARGIN = 17 # distance between widgets
 GRID_SIZE_X = 75
 GRID_SIZE_Y = 96 # distance between grid points
 SNAP_THRESHOLD = 9 # how close before snapping
@@ -164,6 +164,7 @@ class TodoList(MagneticWidget):
                 margin: 5px;
                 font-size: 18px;
                 padding: 2px;
+                color: white;
                 background: rgba(255,255,255,110);
                 border-bottom: 1.5px solid rgba(79, 12, 58, 0.4);
                 border-radius: 0px;
@@ -403,9 +404,11 @@ class SpotifyWidget(MagneticWidget):
 
 
 class PicWidget(MagneticWidget):
+    __instance_count__ = 0
+    
     def __init__(self, shape: str, asset: str, x:int, y:int, w:int, h:int):
-        inst = len([i for i in dir() if isinstance(eval(i), PicWidget)])
-        super().__init__(x,y,w,h,name = f"PicWidgetConstructor{inst}")
+        PicWidget.__instance_count__ += 1
+        super().__init__(x,y,w,h,name = f"PicWidgetConstructor{PicWidget.__instance_count__}")
         self.x = x
         self.y = y
         self.w = w
@@ -456,13 +459,6 @@ class PicWidget(MagneticWidget):
             self.setMask(region)
         else:
             raise ValueError("Shape must be 'circle', 'rounded', 'rectangle', or 'star'.")
-
-    #def start_move(self, event):
-    #    return super().start_move(event)
-    
-    #def do_move(self, event):
-    #    return super().do_move(event)
-
 
 class ClockWidget(MagneticWidget):
     def __init__(self, x:int, y:int, w:int, h:int):
